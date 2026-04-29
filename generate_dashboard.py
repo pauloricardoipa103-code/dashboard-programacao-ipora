@@ -514,7 +514,7 @@ def build_html(rows, logo_data):
       svg.querySelectorAll("[data-filter]").forEach(el => el.addEventListener("click", () => {{
         const key = el.dataset.filter;
         if (!key) return;
-        state[key] = el.dataset.value;
+        state[key] = state[key] === el.dataset.value ? "" : el.dataset.value;
         els(key).value = state[key];
         update();
       }}));
@@ -542,8 +542,9 @@ def build_html(rows, logo_data):
       }});
       svg.insertAdjacentHTML("beforeend", `<text x="${{cx}}" y="${{cy - 4}}" text-anchor="middle" font-size="24" font-weight="800" fill="#0b324e">${{fmt(total)}}</text><text x="${{cx}}" y="${{cy + 17}}" text-anchor="middle" class="legend">ocorrências</text>`);
       svg.querySelectorAll("[data-filter]").forEach(el => el.addEventListener("click", () => {{
-        state[el.dataset.filter] = el.dataset.value;
-        els(el.dataset.filter).value = state[el.dataset.filter];
+        const key = el.dataset.filter;
+        state[key] = state[key] === el.dataset.value ? "" : el.dataset.value;
+        els(key).value = state[key];
         update();
       }}));
     }}
