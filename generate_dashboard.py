@@ -162,6 +162,33 @@ def build_html(rows, logo_data):
       align-items: end;
       margin-bottom: 14px;
     }}
+    .data-actions {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      margin: -2px 0 14px;
+    }}
+    .file-action {{
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      min-height: 38px;
+      border-radius: 7px;
+      padding: 8px 12px;
+      background: var(--remo-green);
+      color: #fff;
+      font-weight: 800;
+      cursor: pointer;
+      overflow: hidden;
+    }}
+    .file-action input {{
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+    }}
+    .data-status {{ color: var(--muted); font-size: 12px; }}
     label {{ display: block; color: var(--muted); font-size: 11px; font-weight: 700; text-transform: uppercase; margin: 0 0 4px; }}
     select, input {{
       width: 100%;
@@ -310,6 +337,8 @@ def build_html(rows, logo_data):
       .topbar {{ grid-template-columns: 1fr; }}
       .stamp {{ text-align: left; }}
       .filters, .charts, .kpis {{ grid-template-columns: 1fr; }}
+      .data-actions, .data-actions button, .file-action {{ width: 100%; }}
+      .data-actions button, .file-action {{ justify-content: center; }}
       .wrap {{ padding: 14px; }}
       svg.chart {{ height: 285px; }}
       #geoMap {{ height: 420px; }}
@@ -336,6 +365,12 @@ def build_html(rows, logo_data):
       <div><label for="tipoTrecho">Tipo do trecho</label><select id="tipoTrecho"></select></div>
       <div><label for="taxonomia">Taxonomia</label><select id="taxonomia"></select></div>
       <button id="reset" type="button" class="secondary">Limpar</button>
+    </section>
+    <section class="data-actions" aria-label="Atualização da base">
+      <label class="file-action">Importar Excel<input id="excelUpload" type="file" accept=".xlsx,.xls"></label>
+      <button id="exportCsv" type="button">Exportar tabela CSV</button>
+      <button id="restoreBase" type="button" class="secondary">Restaurar base inicial</button>
+      <span id="dataStatus" class="data-status"></span>
     </section>
     <div id="activeFilters" class="active-filter"></div>
 
@@ -376,8 +411,10 @@ def build_html(rows, logo_data):
   <div id="tooltip" class="tooltip"></div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script>
-    const DATA = {payload};
+    const ORIGINAL_DATA = {payload};
+    let DATA = loadStoredData() || ORIGINAL_DATA;
     const state = {{
       dateStart: "", dateEnd: "", instalacao: "", se: "", execucao: "",
       tipoTrecho: "", taxonomia: "", crit: "", month: ""
@@ -390,6 +427,20 @@ def build_html(rows, logo_data):
     const els = id => document.getElementById(id);
     const tooltip = els("tooltip");
 
+    function loadStoredData() {{
+      try {{
+        const raw = localStorage.getItem("remoDashboardData");
+        return raw ? JSON.parse(raw) : null;
+      }} catch {{
+        return null;
+      }}
+    }}
+
+    function saveStoredData(rows) {{
+      localStorage.setItem("remoDashboardData", JSON.stringify(rows));
+      localStorage.setItem("remoDashboardUpdatedAt", new Date().toISOString());
+    }}
+
     function statusOf(row) {{
       const raw = norm(row.execucao);
       if (raw !== "Não informado") return raw;
@@ -400,7 +451,7 @@ def build_html(rows, logo_data):
       const select = els(id);
       const values = [...new Set(DATA.map(row => field(row)).filter(Boolean).map(norm))].sort((a, b) => a.localeCompare(b, "pt-BR"));
       select.innerHTML = `<option value="">${{label}}</option>` + values.map(v => `<option value="${{escapeHtml(v)}}">${{escapeHtml(v)}}</option>`).join("");
-      select.addEventListener("change", () => {{ state[id] = select.value; update(); }});
+      select.onchange = () => {{ state[id] = select.value; update(); }};
     }}
 
     function escapeHtml(value) {{
@@ -408,24 +459,158 @@ def build_html(rows, logo_data):
     }}
 
     function setup() {{
+      resetControls();
+      ["dateStart", "dateEnd"].forEach(id => els(id).onchange = () => {{ state[id] = els(id).value; update(); }});
+      els("reset").addEventListener("click", () => {{
+        resetControls();
+        update();
+      }});
+      els("excelUpload").addEventListener("change", handleExcelUpload);
+      els("exportCsv").addEventListener("click", exportFilteredCsv);
+      els("restoreBase").addEventListener("click", () => {{
+        localStorage.removeItem("remoDashboardData");
+        localStorage.removeItem("remoDashboardUpdatedAt");
+        DATA = ORIGINAL_DATA;
+        resetControls();
+        update();
+      }});
+      window.addEventListener("resize", update);
+      update();
+    }}
+
+    function resetControls() {{
       const dates = DATA.map(r => r.dataRegistro).filter(Boolean).sort();
-      els("dateStart").value = dates[0] || "";
-      els("dateEnd").value = dates[dates.length - 1] || "";
-      state.dateStart = els("dateStart").value;
-      state.dateEnd = els("dateEnd").value;
-      ["dateStart", "dateEnd"].forEach(id => els(id).addEventListener("change", () => {{ state[id] = els(id).value; update(); }}));
+      Object.assign(state, {{dateStart: dates[0] || "", dateEnd: dates[dates.length - 1] || "", instalacao:"", se:"", execucao:"", tipoTrecho:"", taxonomia:"", crit:"", month:""}});
+      els("dateStart").value = state.dateStart;
+      els("dateEnd").value = state.dateEnd;
       initSelect("instalacao", r => r.instalacao, "Todas");
       initSelect("se", r => r.se, "Todas");
       initSelect("execucao", statusOf, "Todos");
       initSelect("tipoTrecho", r => r.tipoTrecho, "Todos");
       initSelect("taxonomia", r => r.taxonomia, "Todas");
-      els("reset").addEventListener("click", () => {{
-        Object.assign(state, {{dateStart: dates[0] || "", dateEnd: dates[dates.length - 1] || "", instalacao:"", se:"", execucao:"", tipoTrecho:"", taxonomia:"", crit:"", month:""}});
-        ["dateStart","dateEnd","instalacao","se","execucao","tipoTrecho","taxonomia"].forEach(id => els(id).value = state[id]);
+      updateDataStatus();
+    }}
+
+    function updateDataStatus() {{
+      const storedAt = localStorage.getItem("remoDashboardUpdatedAt");
+      els("dataStatus").textContent = storedAt
+        ? `Base importada localmente em ${{new Date(storedAt).toLocaleString("pt-BR")}} · ${{fmt(DATA.length)}} registros`
+        : `Base inicial embutida · ${{fmt(DATA.length)}} registros`;
+    }}
+
+    async function handleExcelUpload(event) {{
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+      if (!window.XLSX) {{
+        alert("Nao foi possivel carregar o leitor de Excel. Verifique a conexao com a internet e tente novamente.");
+        event.target.value = "";
+        return;
+      }}
+      try {{
+        els("dataStatus").textContent = `Lendo ${{file.name}}...`;
+        const buffer = await file.arrayBuffer();
+        const workbook = XLSX.read(buffer, {{ type: "array", cellDates: true }});
+        const sheetName = workbook.SheetNames.find(name => name.trim().toLowerCase() === "geral anomalias") || workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+        const table = XLSX.utils.sheet_to_json(sheet, {{ header: 1, defval: null, raw: true }});
+        const rows = parseWorksheetRows(table);
+        if (!rows.length) throw new Error("A planilha nao possui registros validos.");
+        DATA = rows;
+        saveStoredData(DATA);
+        resetControls();
         update();
-      }});
-      window.addEventListener("resize", update);
-      update();
+      }} catch (error) {{
+        console.error(error);
+        alert(`Nao consegui importar essa planilha: ${{error.message}}`);
+        updateDataStatus();
+      }} finally {{
+        event.target.value = "";
+      }}
+    }}
+
+    function parseWorksheetRows(table) {{
+      if (!table.length) return [];
+      const headers = table[0].map(v => normHeader(v));
+      const index = name => headers.indexOf(normHeader(name));
+      const required = ["Defeito", "SE", "Latitude", "Longitude", "Instalação", "ID Anomalia", "Execução", "DATA DE REGISTRO", "Tipo de trecho", "Taxonomia"];
+      const missing = required.filter(name => index(name) === -1);
+      if (missing.length) throw new Error(`Colunas obrigatorias ausentes: ${{missing.join(", ")}}`);
+      const val = (row, name) => {{
+        const i = index(name);
+        return i >= 0 ? cleanCell(row[i]) : "";
+      }};
+      return table.slice(1).map(row => {{
+        const lat = toNumber(val(row, "Latitude"));
+        const lon = toNumber(val(row, "Longitude"));
+        return {{
+          defeito: val(row, "Defeito"),
+          os: val(row, "OS"),
+          se: val(row, "SE"),
+          alimentador: val(row, "Alimentador"),
+          lat,
+          lon,
+          crit: val(row, "Crit."),
+          poste: val(row, "Poste"),
+          projeto: val(row, "Projeto"),
+          instalacao: val(row, "Instalação"),
+          id: val(row, "ID Anomalia"),
+          empresa: val(row, "Empresa"),
+          mes: toDateText(val(row, "Mês")),
+          ose: val(row, "OSE"),
+          execucao: val(row, "Execução"),
+          dataExecucao: toDateText(val(row, "Data de execução")),
+          prioridade: val(row, "Prioridade"),
+          tipoAnomalia: val(row, "Tipo de anomalia"),
+          seccional: val(row, "Seccional"),
+          dataRegistro: toDateText(val(row, "DATA DE REGISTRO")),
+          tipoTrecho: val(row, "Tipo de trecho"),
+          semana: val(row, "Semana"),
+          pendente: val(row, "Anomalias pendentes"),
+          taxonomia: val(row, "Taxonomia"),
+          conjunto: val(row, "conjunto"),
+          clientes: val(row, "Qtd Clientes"),
+          statusEquipamento: val(row, "Status Equipamento"),
+          prazo: val(row, "Prazo de execução")
+        }};
+      }}).filter(row => row.id || row.se || row.instalacao || row.defeito);
+    }}
+
+    function normHeader(value) {{
+      return String(value || "").trim().toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g, "");
+    }}
+
+    function cleanCell(value) {{
+      if (value === null || value === undefined) return "";
+      if (value instanceof Date) return value.toISOString().slice(0, 10);
+      const text = String(value).trim();
+      return text === "#NAME?" || text === "undefined" || text === "null" ? "" : text;
+    }}
+
+    function toNumber(value) {{
+      if (value === "" || value === null || value === undefined) return null;
+      const number = typeof value === "number" ? value : Number(String(value).replace(",", "."));
+      return Number.isFinite(number) ? number : null;
+    }}
+
+    function toDateText(value) {{
+      if (!value) return "";
+      if (value instanceof Date) return value.toISOString().slice(0, 10);
+      if (typeof value === "number") {{
+        const date = XLSX.SSF.parse_date_code(value);
+        if (date) return `${{date.y}}-${{String(date.m).padStart(2, "0")}}-${{String(date.d).padStart(2, "0")}}`;
+      }}
+      const text = String(value).trim();
+      if (/^\\d+(\\.\\d+)?$/.test(text) && Number(text) > 20000 && window.XLSX) {{
+        const date = XLSX.SSF.parse_date_code(Number(text));
+        if (date) return `${{date.y}}-${{String(date.m).padStart(2, "0")}}-${{String(date.d).padStart(2, "0")}}`;
+      }}
+      const br = text.match(/^(\\d{{1,2}})[\\/.-](\\d{{1,2}})[\\/.-](\\d{{2,4}})$/);
+      if (br) {{
+        const y = br[3].length === 2 ? `20${{br[3]}}` : br[3];
+        return `${{y}}-${{br[2].padStart(2, "0")}}-${{br[1].padStart(2, "0")}}`;
+      }}
+      const iso = text.match(/^(\\d{{4}})-(\\d{{1,2}})-(\\d{{1,2}})/);
+      return iso ? `${{iso[1]}}-${{iso[2].padStart(2, "0")}}-${{iso[3].padStart(2, "0")}}` : text;
     }}
 
     function filtered() {{
@@ -635,6 +820,46 @@ def build_html(rows, logo_data):
 
     function renderTable(rows) {{
       els("detailRows").innerHTML = rows.slice(0, 80).map(r => `<tr><td>${{escapeHtml(r.id)}}</td><td>${{escapeHtml(r.os)}}</td><td>${{escapeHtml(short(r.defeito, 52))}}</td><td>${{escapeHtml(r.se)}}</td><td>${{escapeHtml(r.instalacao)}}</td><td>${{escapeHtml(r.tipoTrecho)}}</td><td>${{escapeHtml(r.taxonomia)}}</td><td>${{escapeHtml(statusOf(r))}}</td><td>${{escapeHtml(r.dataRegistro)}}</td></tr>`).join("");
+    }}
+
+    function exportFilteredCsv() {{
+      const rows = filtered();
+      const columns = [
+        ["id", "ID Anomalia"],
+        ["os", "OS"],
+        ["defeito", "Defeito"],
+        ["se", "SE"],
+        ["alimentador", "Alimentador"],
+        ["instalacao", "Instalação"],
+        ["poste", "Poste"],
+        ["crit", "Criticidade"],
+        ["tipoTrecho", "Tipo de trecho"],
+        ["taxonomia", "Taxonomia"],
+        ["tipoAnomalia", "Tipo de anomalia"],
+        ["execucao", "Execução"],
+        ["dataRegistro", "Data de registro"],
+        ["dataExecucao", "Data de execução"],
+        ["lat", "Latitude"],
+        ["lon", "Longitude"]
+      ];
+      const lines = [columns.map(c => csvCell(c[1])).join(";")];
+      rows.forEach(row => {{
+        lines.push(columns.map(([key]) => csvCell(key === "execucao" ? statusOf(row) : row[key])).join(";"));
+      }});
+      const blob = new Blob(["\\ufeff" + lines.join("\\r\\n")], {{ type: "text/csv;charset=utf-8" }});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `anomalias_filtradas_${{new Date().toISOString().slice(0, 10)}}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }}
+
+    function csvCell(value) {{
+      const text = value === null || value === undefined ? "" : String(value);
+      return `"${{text.replace(/"/g, '""')}}"`;
     }}
 
     function short(value, size) {{
