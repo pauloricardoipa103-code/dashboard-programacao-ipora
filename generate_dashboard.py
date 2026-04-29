@@ -311,6 +311,8 @@ def build_html(rows, logo_data):
       .stamp {{ text-align: left; }}
       .filters, .charts, .kpis {{ grid-template-columns: 1fr; }}
       .wrap {{ padding: 14px; }}
+      svg.chart {{ height: 285px; }}
+      #geoMap {{ height: 420px; }}
     }}
   </style>
 </head>
@@ -378,7 +380,7 @@ def build_html(rows, logo_data):
     const DATA = {payload};
     const state = {{
       dateStart: "", dateEnd: "", instalacao: "", se: "", execucao: "",
-      tipoTrecho: "", taxonomia: ""
+      tipoTrecho: "", taxonomia: "", crit: "", month: ""
     }};
     const palette = ["#10496f", "#29c77b", "#ffd84d", "#6f7f8a", "#d94f45", "#4b8dbd", "#7c5cc4"];
     const statusColor = value => String(value).toLowerCase().includes("pend") ? "#d94f45" : "#29c77b";
@@ -418,7 +420,7 @@ def build_html(rows, logo_data):
       initSelect("tipoTrecho", r => r.tipoTrecho, "Todos");
       initSelect("taxonomia", r => r.taxonomia, "Todas");
       els("reset").addEventListener("click", () => {{
-        Object.assign(state, {{dateStart: dates[0] || "", dateEnd: dates[dates.length - 1] || "", instalacao:"", se:"", execucao:"", tipoTrecho:"", taxonomia:""}});
+        Object.assign(state, {{dateStart: dates[0] || "", dateEnd: dates[dates.length - 1] || "", instalacao:"", se:"", execucao:"", tipoTrecho:"", taxonomia:"", crit:"", month:""}});
         ["dateStart","dateEnd","instalacao","se","execucao","tipoTrecho","taxonomia"].forEach(id => els(id).value = state[id]);
         update();
       }});
@@ -435,6 +437,8 @@ def build_html(rows, logo_data):
         if (state.execucao && norm(statusOf(r)) !== state.execucao) return false;
         if (state.tipoTrecho && norm(r.tipoTrecho) !== state.tipoTrecho) return false;
         if (state.taxonomia && norm(r.taxonomia) !== state.taxonomia) return false;
+        if (state.crit && norm(r.crit) !== state.crit) return false;
+        if (state.month && (!r.dataRegistro || !r.dataRegistro.startsWith(state.month))) return false;
         return true;
       }});
     }}
@@ -448,7 +452,7 @@ def build_html(rows, logo_data):
       renderDonut("chartTrecho", group(rows, r => norm(r.tipoTrecho)), "tipoTrecho");
       renderDonut("chartTaxonomia", group(rows, r => norm(r.taxonomia)), "taxonomia");
       renderLine("chartTempo", groupMonth(rows));
-      renderBar("chartCrit", group(rows, r => norm(r.crit)), null, null, 8);
+      renderBar("chartCrit", group(rows, r => norm(r.crit)), "crit", null, 8);
       renderMap(rows);
       renderTable(rows);
     }}
@@ -457,6 +461,8 @@ def build_html(rows, logo_data):
       const chips = [];
       const labels = {{instalacao:"Instalação", se:"SE", execucao:"Execução", tipoTrecho:"Trecho", taxonomia:"Taxonomia"}};
       Object.entries(labels).forEach(([key, label]) => {{ if (state[key]) chips.push(`${{label}}: ${{state[key]}}`); }});
+      if (state.crit) chips.push(`Criticidade: ${{state.crit}}`);
+      if (state.month) chips.push(`Mês: ${{state.month.slice(5)}}/${{state.month.slice(0,4)}}`);
       els("activeFilters").innerHTML = chips.map(c => `<span class="chip">${{escapeHtml(c)}}</span>`).join("");
     }}
 
@@ -498,6 +504,14 @@ def build_html(rows, logo_data):
       return {{svg, w, h}};
     }}
 
+    function toggleFilter(key, value) {{
+      if (!key) return;
+      state[key] = state[key] === value ? "" : value;
+      const control = els(key);
+      if (control) control.value = state[key];
+      update();
+    }}
+
     function renderBar(id, entries, filterKey, colorFn, limit = 6) {{
       const {{svg, w, h}} = svgRoot(id);
       const data = entries.slice(0, limit);
@@ -514,9 +528,7 @@ def build_html(rows, logo_data):
       svg.querySelectorAll("[data-filter]").forEach(el => el.addEventListener("click", () => {{
         const key = el.dataset.filter;
         if (!key) return;
-        state[key] = state[key] === el.dataset.value ? "" : el.dataset.value;
-        els(key).value = state[key];
-        update();
+        toggleFilter(key, el.dataset.value);
       }}));
     }}
 
@@ -532,20 +544,21 @@ def build_html(rows, logo_data):
       entries.slice(0, 6).forEach(([name, value], i) => {{
         const angle = (value / total) * Math.PI * 2;
         const end = start + angle;
-        const path = arc(cx, cy, r, start, end);
-        svg.insertAdjacentHTML("beforeend", `<path class="clickable" data-filter="${{filterKey}}" data-value="${{escapeHtml(name)}}" d="${{path}}" fill="none" stroke="${{palette[i % palette.length]}}" stroke-width="${{sw}}" stroke-linecap="butt"></path>`);
+        if (value === total) {{
+          svg.insertAdjacentHTML("beforeend", `<circle class="clickable" data-filter="${{filterKey}}" data-value="${{escapeHtml(name)}}" cx="${{cx}}" cy="${{cy}}" r="${{r}}" fill="none" stroke="${{palette[i % palette.length]}}" stroke-width="${{sw}}"></circle>`);
+        }} else {{
+          const path = arc(cx, cy, r, start, end);
+          svg.insertAdjacentHTML("beforeend", `<path class="clickable" data-filter="${{filterKey}}" data-value="${{escapeHtml(name)}}" d="${{path}}" fill="none" stroke="${{palette[i % palette.length]}}" stroke-width="${{sw}}" stroke-linecap="butt"></path>`);
+        }}
         const ly = compact ? 188 + i * 22 : 32 + i * 28;
         const legendX = compact ? 40 : Math.max(cx + r + 28, Math.min(w - 210, 248));
         const labelSize = compact ? 30 : 28;
-        svg.insertAdjacentHTML("beforeend", `<rect x="${{legendX}}" y="${{ly - 10}}" width="12" height="12" rx="2" fill="${{palette[i % palette.length]}}"></rect><text class="legend" x="${{legendX + 18}}" y="${{ly}}">${{escapeHtml(short(name, labelSize))}} · ${{fmt(value)}} · ${{pct(value, total)}}</text>`);
+        svg.insertAdjacentHTML("beforeend", `<rect class="clickable" data-filter="${{filterKey}}" data-value="${{escapeHtml(name)}}" x="${{legendX}}" y="${{ly - 10}}" width="12" height="12" rx="2" fill="${{palette[i % palette.length]}}"></rect><text class="legend clickable" data-filter="${{filterKey}}" data-value="${{escapeHtml(name)}}" x="${{legendX + 18}}" y="${{ly}}">${{escapeHtml(short(name, labelSize))}} · ${{fmt(value)}} · ${{pct(value, total)}}</text>`);
         start = end;
       }});
       svg.insertAdjacentHTML("beforeend", `<text x="${{cx}}" y="${{cy - 4}}" text-anchor="middle" font-size="24" font-weight="800" fill="#0b324e">${{fmt(total)}}</text><text x="${{cx}}" y="${{cy + 17}}" text-anchor="middle" class="legend">ocorrências</text>`);
       svg.querySelectorAll("[data-filter]").forEach(el => el.addEventListener("click", () => {{
-        const key = el.dataset.filter;
-        state[key] = state[key] === el.dataset.value ? "" : el.dataset.value;
-        els(key).value = state[key];
-        update();
+        toggleFilter(el.dataset.filter, el.dataset.value);
       }}));
     }}
 
@@ -570,10 +583,11 @@ def build_html(rows, logo_data):
       svg.insertAdjacentHTML("beforeend", `<polyline points="${{points}}" fill="none" stroke="#10496f" stroke-width="3"></polyline>`);
       entries.forEach((d,i) => {{
         const xx = x(i), yy = y(d[1]);
-        svg.insertAdjacentHTML("beforeend", `<circle cx="${{xx}}" cy="${{yy}}" r="4" fill="#29c77b"><title>${{d[0]}}: ${{d[1]}}</title></circle>`);
+        svg.insertAdjacentHTML("beforeend", `<circle class="clickable" data-filter="month" data-value="${{escapeHtml(d[0])}}" cx="${{xx}}" cy="${{yy}}" r="5" fill="#29c77b"><title>${{d[0]}}: ${{d[1]}}</title></circle>`);
         svg.insertAdjacentHTML("beforeend", `<text class="bar-value" x="${{xx}}" y="${{Math.max(12, yy - 8)}}" text-anchor="middle">${{fmt(d[1])}}</text>`);
         if (i % Math.ceil(entries.length / 6 || 1) === 0) svg.insertAdjacentHTML("beforeend", `<text class="axis" x="${{x(i)}}" y="${{h-10}}" text-anchor="middle">${{d[0].slice(5)}}/${{d[0].slice(2,4)}}</text>`);
       }});
+      svg.querySelectorAll("[data-filter]").forEach(el => el.addEventListener("click", () => toggleFilter(el.dataset.filter, el.dataset.value)));
     }}
 
     let map = null;
