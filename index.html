@@ -214,7 +214,7 @@
       text-align: center;
     }
     .map-note { color: var(--muted); margin-top: 8px; font-size: 12px; }
-    .table-wrap { max-height: 255px; overflow: auto; border: 1px solid var(--line); border-radius: 7px; }
+    .table-wrap { max-height: 430px; overflow: auto; border: 1px solid var(--line); border-radius: 7px; }
     table { width: 100%; border-collapse: collapse; font-size: 12px; }
     th, td { padding: 8px 9px; border-bottom: 1px solid #e7edf2; text-align: left; }
     th { position: sticky; top: 0; background: #f7fafc; color: #516170; z-index: 1; }
@@ -723,7 +723,8 @@
     }
 
     function renderTable(rows) {
-      els("detailRows").innerHTML = rows.slice(0, 80).map(r => `<tr><td>${escapeHtml(r.id)}</td><td>${escapeHtml(r.os)}</td><td>${escapeHtml(short(r.defeito, 52))}</td><td>${escapeHtml(r.se)}</td><td>${escapeHtml(r.instalacao)}</td><td>${escapeHtml(r.tipoTrecho)}</td><td>${escapeHtml(r.taxonomia)}</td><td>${escapeHtml(statusOf(r))}</td><td>${escapeHtml(r.dataRegistro)}</td></tr>`).join("");
+      const ordered = [...rows].sort((a, b) => String(a.dataRegistro || "").localeCompare(String(b.dataRegistro || "")));
+      els("detailRows").innerHTML = ordered.map(r => `<tr><td>${escapeHtml(r.id)}</td><td>${escapeHtml(r.os)}</td><td>${escapeHtml(short(r.defeito, 52))}</td><td>${escapeHtml(r.se)}</td><td>${escapeHtml(r.instalacao)}</td><td>${escapeHtml(r.tipoTrecho)}</td><td>${escapeHtml(r.taxonomia)}</td><td>${escapeHtml(statusOf(r))}</td><td>${escapeHtml(r.dataRegistro)}</td></tr>`).join("");
     }
 
     function exportFilteredCsv() {
