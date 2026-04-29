@@ -167,18 +167,21 @@ def build_html(rows, logo_data):
       flex-wrap: wrap;
       gap: 10px;
       align-items: center;
-      margin: -2px 0 14px;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid #e7edf2;
     }}
     .file-action {{
       position: relative;
       display: inline-flex;
       align-items: center;
-      min-height: 38px;
+      min-height: 32px;
       border-radius: 7px;
-      padding: 8px 12px;
+      padding: 7px 10px;
       background: var(--remo-green);
       color: #fff;
       font-weight: 800;
+      font-size: 12px;
       cursor: pointer;
       overflow: hidden;
     }}
@@ -189,6 +192,11 @@ def build_html(rows, logo_data):
       cursor: pointer;
     }}
     .data-status {{ color: var(--muted); font-size: 12px; }}
+    .data-actions button {{
+      min-height: 32px;
+      padding: 7px 10px;
+      font-size: 12px;
+    }}
     label {{ display: block; color: var(--muted); font-size: 11px; font-weight: 700; text-transform: uppercase; margin: 0 0 4px; }}
     select, input {{
       width: 100%;
@@ -366,12 +374,6 @@ def build_html(rows, logo_data):
       <div><label for="taxonomia">Taxonomia</label><select id="taxonomia"></select></div>
       <button id="reset" type="button" class="secondary">Limpar</button>
     </section>
-    <section class="data-actions" aria-label="Atualização da base">
-      <label class="file-action">Importar Excel<input id="excelUpload" type="file" accept=".xlsx,.xls"></label>
-      <button id="exportCsv" type="button">Exportar tabela CSV</button>
-      <button id="restoreBase" type="button" class="secondary">Restaurar base inicial</button>
-      <span id="dataStatus" class="data-status"></span>
-    </section>
     <div id="activeFilters" class="active-filter"></div>
 
     <section class="kpis">
@@ -395,6 +397,12 @@ def build_html(rows, logo_data):
         <h2>Mapa geográfico das ocorrências</h2>
         <div id="geoMap"></div>
         <div class="map-note">Arraste e use o zoom para navegar pelo mapa. Verde indica executada; vermelho indica pendente.</div>
+        <section class="data-actions" aria-label="Atualização da base">
+          <label class="file-action">Importar Excel<input id="excelUpload" type="file" accept=".xlsx,.xls"></label>
+          <button id="exportCsv" type="button">Exportar CSV</button>
+          <button id="restoreBase" type="button" class="secondary">Restaurar base</button>
+          <span id="dataStatus" class="data-status"></span>
+        </section>
       </div>
     </section>
 
