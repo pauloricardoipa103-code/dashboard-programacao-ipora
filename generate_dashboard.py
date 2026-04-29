@@ -78,6 +78,21 @@ def load_rows():
 
 def encode_logo():
     image = Image.open(LOGO).convert("RGBA")
+    bg = Image.new("RGBA", image.size, (255, 255, 255, 255))
+    diff = Image.new("RGBA", image.size, (0, 0, 0, 0))
+    pixels = []
+    for pixel in image.getdata():
+        r, g, b, a = pixel
+        pixels.append((0, 0, 0, 255) if a > 0 and (r < 245 or g < 245 or b < 245) else (0, 0, 0, 0))
+    diff.putdata(pixels)
+    bbox = diff.getbbox()
+    if bbox:
+        pad = 18
+        left = max(0, bbox[0] - pad)
+        top = max(0, bbox[1] - pad)
+        right = min(image.width, bbox[2] + pad)
+        bottom = min(image.height, bbox[3] + pad)
+        image = image.crop((left, top, right, bottom))
     image.thumbnail((520, 180), Image.LANCZOS)
     buffer = io.BytesIO()
     image.save(buffer, format="PNG", optimize=True)
@@ -129,11 +144,13 @@ def build_html(rows, logo_data):
       height: 70px;
       display: flex;
       align-items: center;
+      justify-content: center;
       background: rgba(255,255,255,.96);
       border-radius: 8px;
-      padding: 8px 12px;
+      padding: 6px 10px;
+      overflow: hidden;
     }}
-    .brand img {{ width: 100%; max-height: 54px; object-fit: contain; }}
+    .brand img {{ width: 100%; height: 100%; object-fit: contain; }}
     h1 {{ margin: 0; font-size: 24px; font-weight: 750; letter-spacing: 0; }}
     .subtitle {{ margin-top: 4px; color: rgba(255,255,255,.82); }}
     .stamp {{ text-align: right; color: rgba(255,255,255,.82); font-size: 12px; }}
@@ -190,11 +207,16 @@ def build_html(rows, logo_data):
     .kpi {{
       background: var(--panel);
       border: 1px solid var(--line);
+      border-left: 6px solid var(--remo-green);
       border-radius: 8px;
       box-shadow: var(--shadow);
       padding: 13px 14px;
       min-height: 92px;
     }}
+    .kpi:nth-child(2) {{ border-left-color: #29c77b; }}
+    .kpi:nth-child(3) {{ border-left-color: #d94f45; }}
+    .kpi:nth-child(4) {{ border-left-color: #ffd84d; }}
+    .kpi:nth-child(5) {{ border-left-color: #4b8dbd; }}
     .kpi .label {{ color: var(--muted); font-size: 12px; font-weight: 700; text-transform: uppercase; }}
     .kpi .value {{ font-size: 30px; font-weight: 800; margin-top: 6px; color: var(--remo-blue-2); }}
     .kpi .note {{ color: var(--muted); font-size: 12px; margin-top: 1px; }}
@@ -501,15 +523,21 @@ def build_html(rows, logo_data):
     function renderDonut(id, entries, filterKey) {{
       const {{svg, w, h}} = svgRoot(id);
       const total = entries.reduce((s, d) => s + d[1], 0) || 1;
-      const cx = 112, cy = h / 2, r = 74, sw = 28;
+      const compact = w < 430;
+      const cx = compact ? w / 2 : 106;
+      const cy = compact ? 96 : h / 2;
+      const r = compact ? 58 : 68;
+      const sw = compact ? 22 : 25;
       let start = -Math.PI / 2;
       entries.slice(0, 6).forEach(([name, value], i) => {{
         const angle = (value / total) * Math.PI * 2;
         const end = start + angle;
         const path = arc(cx, cy, r, start, end);
         svg.insertAdjacentHTML("beforeend", `<path class="clickable" data-filter="${{filterKey}}" data-value="${{escapeHtml(name)}}" d="${{path}}" fill="none" stroke="${{palette[i % palette.length]}}" stroke-width="${{sw}}" stroke-linecap="butt"></path>`);
-        const ly = 38 + i * 28;
-        svg.insertAdjacentHTML("beforeend", `<rect x="${{w - 190}}" y="${{ly - 10}}" width="12" height="12" rx="2" fill="${{palette[i % palette.length]}}"></rect><text class="legend" x="${{w - 172}}" y="${{ly}}">${{escapeHtml(short(name, 22))}} · ${{pct(value, total)}}</text>`);
+        const ly = compact ? 188 + i * 22 : 32 + i * 28;
+        const legendX = compact ? 40 : Math.max(cx + r + 28, Math.min(w - 210, 248));
+        const labelSize = compact ? 30 : 28;
+        svg.insertAdjacentHTML("beforeend", `<rect x="${{legendX}}" y="${{ly - 10}}" width="12" height="12" rx="2" fill="${{palette[i % palette.length]}}"></rect><text class="legend" x="${{legendX + 18}}" y="${{ly}}">${{escapeHtml(short(name, labelSize))}} · ${{fmt(value)}} · ${{pct(value, total)}}</text>`);
         start = end;
       }});
       svg.insertAdjacentHTML("beforeend", `<text x="${{cx}}" y="${{cy - 4}}" text-anchor="middle" font-size="24" font-weight="800" fill="#0b324e">${{fmt(total)}}</text><text x="${{cx}}" y="${{cy + 17}}" text-anchor="middle" class="legend">ocorrências</text>`);
@@ -540,7 +568,9 @@ def build_html(rows, logo_data):
       const points = entries.map((d,i) => `${{x(i)}},${{y(d[1])}}`).join(" ");
       svg.insertAdjacentHTML("beforeend", `<polyline points="${{points}}" fill="none" stroke="#10496f" stroke-width="3"></polyline>`);
       entries.forEach((d,i) => {{
-        svg.insertAdjacentHTML("beforeend", `<circle cx="${{x(i)}}" cy="${{y(d[1])}}" r="4" fill="#29c77b"><title>${{d[0]}}: ${{d[1]}}</title></circle>`);
+        const xx = x(i), yy = y(d[1]);
+        svg.insertAdjacentHTML("beforeend", `<circle cx="${{xx}}" cy="${{yy}}" r="4" fill="#29c77b"><title>${{d[0]}}: ${{d[1]}}</title></circle>`);
+        svg.insertAdjacentHTML("beforeend", `<text class="bar-value" x="${{xx}}" y="${{Math.max(12, yy - 8)}}" text-anchor="middle">${{fmt(d[1])}}</text>`);
         if (i % Math.ceil(entries.length / 6 || 1) === 0) svg.insertAdjacentHTML("beforeend", `<text class="axis" x="${{x(i)}}" y="${{h-10}}" text-anchor="middle">${{d[0].slice(5)}}/${{d[0].slice(2,4)}}</text>`);
       }});
     }}
