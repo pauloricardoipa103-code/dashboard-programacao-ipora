@@ -217,7 +217,7 @@
       <h1>Acompanhamento de Anomalias Equatorial</h1>
       <div class="subtitle">Pendências, execução, taxonomia e distribuição geográfica das ocorrências encaminhadas à REMO</div>
     </div>
-    <div class="stamp">Base: Geral anomalias<br>Gerado em 29/04/2026 15:18</div>
+    <div class="stamp">Base: Geral anomalias<br>Gerado em 29/04/2026 15:29</div>
   </header>
 
   <main class="wrap">
@@ -410,7 +410,7 @@
       svg.querySelectorAll("[data-filter]").forEach(el => el.addEventListener("click", () => {
         const key = el.dataset.filter;
         if (!key) return;
-        state[key] = el.dataset.value;
+        state[key] = state[key] === el.dataset.value ? "" : el.dataset.value;
         els(key).value = state[key];
         update();
       }));
@@ -438,8 +438,9 @@
       });
       svg.insertAdjacentHTML("beforeend", `<text x="${cx}" y="${cy - 4}" text-anchor="middle" font-size="24" font-weight="800" fill="#0b324e">${fmt(total)}</text><text x="${cx}" y="${cy + 17}" text-anchor="middle" class="legend">ocorrências</text>`);
       svg.querySelectorAll("[data-filter]").forEach(el => el.addEventListener("click", () => {
-        state[el.dataset.filter] = el.dataset.value;
-        els(el.dataset.filter).value = state[el.dataset.filter];
+        const key = el.dataset.filter;
+        state[key] = state[key] === el.dataset.value ? "" : el.dataset.value;
+        els(key).value = state[key];
         update();
       }));
     }
