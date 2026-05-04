@@ -360,7 +360,7 @@ def build_html(rows, logo_data):
       <h1>Acompanhamento de Anomalias Equatorial</h1>
       <div class="subtitle">Pendências, execução, taxonomia e distribuição geográfica das ocorrências encaminhadas à REMO</div>
     </div>
-    <div class="stamp">Base: Geral anomalias<br>Gerado em {generated}</div>
+    <div id="baseStamp" class="stamp">Base: Geral anomalias<br>Gerado em {generated}</div>
   </header>
 
   <main class="wrap">
@@ -503,6 +503,12 @@ def build_html(rows, logo_data):
 
     function updateDataStatus() {{
       const storedAt = localStorage.getItem("remoDashboardUpdatedAt");
+      const baseStamp = els("baseStamp");
+      if (baseStamp) {{
+        baseStamp.innerHTML = storedAt
+          ? `Base: Geral anomalias<br>Atualizado em ${{new Date(storedAt).toLocaleString("pt-BR")}}`
+          : "Base: Geral anomalias<br>Gerado em {generated}";
+      }}
       els("dataStatus").textContent = storedAt
         ? `Base importada localmente em ${{new Date(storedAt).toLocaleString("pt-BR")}} · ${{fmt(DATA.length)}} registros`
         : `Base inicial embutida · ${{fmt(DATA.length)}} registros`;
