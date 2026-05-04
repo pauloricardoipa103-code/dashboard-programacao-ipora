@@ -53,7 +53,7 @@
     .wrap { padding: 18px 22px 26px; max-width: 1680px; margin: 0 auto; }
     .filters {
       display: grid;
-      grid-template-columns: repeat(7, minmax(130px, 1fr)) auto;
+      grid-template-columns: repeat(8, minmax(120px, 1fr)) auto;
       gap: 10px;
       align-items: end;
       margin-bottom: 14px;
@@ -268,6 +268,7 @@
       <div><label for="execucao">Execução</label><select id="execucao"></select></div>
       <div><label for="tipoTrecho">Tipo do trecho</label><select id="tipoTrecho"></select></div>
       <div><label for="taxonomia">Taxonomia</label><select id="taxonomia"></select></div>
+      <div><label for="projeto">Projeto</label><select id="projeto"></select></div>
       <button id="reset" type="button" class="secondary">Limpar</button>
     </section>
     <div id="activeFilters" class="active-filter"></div>
@@ -306,7 +307,7 @@
       <h2>Principais ocorrências e alimentadores</h2>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>ID</th><th>OS</th><th>Defeito</th><th>SE</th><th>Instalação</th><th>Trecho</th><th>Taxonomia</th><th>Execução</th><th>Registro</th></tr></thead>
+          <thead><tr><th>ID</th><th>OS</th><th>Projeto</th><th>Defeito</th><th>SE</th><th>Instalação</th><th>Trecho</th><th>Taxonomia</th><th>Execução</th><th>Registro</th></tr></thead>
           <tbody id="detailRows"></tbody>
         </table>
       </div>
@@ -321,7 +322,7 @@
     let DATA = loadStoredData() || ORIGINAL_DATA;
     const state = {
       dateStart: "", dateEnd: "", instalacao: "", se: "", execucao: "",
-      tipoTrecho: "", taxonomia: "", crit: "", month: ""
+      tipoTrecho: "", taxonomia: "", projeto: "", crit: "", month: ""
     };
     const palette = ["#10496f", "#29c77b", "#ffd84d", "#6f7f8a", "#d94f45", "#4b8dbd", "#7c5cc4"];
     const statusColor = value => String(value).toLowerCase().includes("pend") ? "#d94f45" : "#29c77b";
@@ -384,7 +385,7 @@
 
     function resetControls() {
       const dates = DATA.map(r => r.dataRegistro).filter(Boolean).sort();
-      Object.assign(state, {dateStart: dates[0] || "", dateEnd: dates[dates.length - 1] || "", instalacao:"", se:"", execucao:"", tipoTrecho:"", taxonomia:"", crit:"", month:""});
+      Object.assign(state, {dateStart: dates[0] || "", dateEnd: dates[dates.length - 1] || "", instalacao:"", se:"", execucao:"", tipoTrecho:"", taxonomia:"", projeto:"", crit:"", month:""});
       els("dateStart").value = state.dateStart;
       els("dateEnd").value = state.dateEnd;
       initSelect("instalacao", r => r.instalacao, "Todas");
@@ -392,6 +393,7 @@
       initSelect("execucao", statusOf, "Todos");
       initSelect("tipoTrecho", r => r.tipoTrecho, "Todos");
       initSelect("taxonomia", r => r.taxonomia, "Todas");
+      initSelect("projeto", r => r.projeto, "Todos");
       updateDataStatus();
     }
 
@@ -526,6 +528,7 @@
         if (state.execucao && norm(statusOf(r)) !== state.execucao) return false;
         if (state.tipoTrecho && norm(r.tipoTrecho) !== state.tipoTrecho) return false;
         if (state.taxonomia && norm(r.taxonomia) !== state.taxonomia) return false;
+        if (state.projeto && norm(r.projeto) !== state.projeto) return false;
         if (state.crit && norm(r.crit) !== state.crit) return false;
         if (state.month && (!r.dataRegistro || !r.dataRegistro.startsWith(state.month))) return false;
         return true;
@@ -548,7 +551,7 @@
 
     function renderActiveFilters() {
       const chips = [];
-      const labels = {instalacao:"Instalação", se:"SE", execucao:"Execução", tipoTrecho:"Trecho", taxonomia:"Taxonomia"};
+      const labels = {instalacao:"Instalação", se:"SE", execucao:"Execução", tipoTrecho:"Trecho", taxonomia:"Taxonomia", projeto:"Projeto"};
       Object.entries(labels).forEach(([key, label]) => { if (state[key]) chips.push(`${label}: ${state[key]}`); });
       if (state.crit) chips.push(`Criticidade: ${state.crit}`);
       if (state.month) chips.push(`Mês: ${state.month.slice(5)}/${state.month.slice(0,4)}`);
@@ -724,7 +727,7 @@
 
     function renderTable(rows) {
       const ordered = [...rows].sort((a, b) => String(a.dataRegistro || "").localeCompare(String(b.dataRegistro || "")));
-      els("detailRows").innerHTML = ordered.map(r => `<tr><td>${escapeHtml(r.id)}</td><td>${escapeHtml(r.os)}</td><td>${escapeHtml(short(r.defeito, 52))}</td><td>${escapeHtml(r.se)}</td><td>${escapeHtml(r.instalacao)}</td><td>${escapeHtml(r.tipoTrecho)}</td><td>${escapeHtml(r.taxonomia)}</td><td>${escapeHtml(statusOf(r))}</td><td>${escapeHtml(r.dataRegistro)}</td></tr>`).join("");
+      els("detailRows").innerHTML = ordered.map(r => `<tr><td>${escapeHtml(r.id)}</td><td>${escapeHtml(r.os)}</td><td>${escapeHtml(r.projeto)}</td><td>${escapeHtml(short(r.defeito, 52))}</td><td>${escapeHtml(r.se)}</td><td>${escapeHtml(r.instalacao)}</td><td>${escapeHtml(r.tipoTrecho)}</td><td>${escapeHtml(r.taxonomia)}</td><td>${escapeHtml(statusOf(r))}</td><td>${escapeHtml(r.dataRegistro)}</td></tr>`).join("");
     }
 
     function exportFilteredCsv() {
@@ -735,6 +738,7 @@
         ["defeito", "Defeito"],
         ["se", "SE"],
         ["alimentador", "Alimentador"],
+        ["projeto", "Projeto"],
         ["instalacao", "Instalação"],
         ["poste", "Poste"],
         ["crit", "Criticidade"],
