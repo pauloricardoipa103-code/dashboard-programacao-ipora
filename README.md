@@ -16,12 +16,13 @@ O mapa interativo usa base cartografica online, entao a maquina precisa estar co
 
 ## Como atualizar a base
 
-1. Abra o dashboard.
-2. Clique em `Importar Excel`.
-3. Selecione a planilha atualizada enviada pela Equatorial.
-4. O dashboard atualiza os KPIs, graficos, mapa e tabela automaticamente.
+1. Abra `admin.html`.
+2. Selecione a planilha atualizada enviada pela Equatorial.
+3. Confira os totais exibidos na tela.
+4. Informe um token GitHub com permissao de escrita no repositorio.
+5. Clique em `Publicar atualizacao`.
 
-A nova base fica salva no proprio navegador utilizado. Nao e necessario banco de dados.
+A base publicada fica em `dados/anomalias.json`. Todos que acessarem o link do painel passam a carregar essa mesma base central.
 
 ## Como exportar CSV
 

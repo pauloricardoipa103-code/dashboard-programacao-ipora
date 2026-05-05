@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin | Atualizar Anomalias REMO</title>
+  <style>
+    :root { --blue:#10496f; --dark:#0b324e; --green:#29c77b; --line:#d8e1e8; --soft:#edf4f7; --muted:#657382; }
+    * { box-sizing: border-box; }
+    body { margin:0; background:var(--soft); color:#162331; font:14px/1.45 "Segoe UI", Arial, sans-serif; }
+    header { padding:18px 24px; color:#fff; background:linear-gradient(110deg,var(--dark),var(--blue) 68%,#17745d); border-bottom:4px solid var(--green); }
+    h1 { margin:0; font-size:24px; }
+    p { margin:6px 0 0; color:var(--muted); }
+    header p { color:rgba(255,255,255,.84); }
+    main { max-width:980px; margin:0 auto; padding:22px; }
+    .panel { background:#fff; border:1px solid var(--line); border-radius:8px; padding:18px; box-shadow:0 10px 28px rgba(19,42,60,.10); margin-bottom:14px; }
+    label { display:block; margin:12px 0 5px; color:var(--muted); font-size:11px; font-weight:800; text-transform:uppercase; }
+    input { width:100%; min-height:40px; border:1px solid var(--line); border-radius:7px; padding:9px 10px; }
+    button { min-height:40px; border:0; border-radius:7px; background:var(--blue); color:#fff; font-weight:800; padding:9px 13px; cursor:pointer; }
+    button:disabled { opacity:.55; cursor:not-allowed; }
+    .green { background:var(--green); }
+    .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:14px; }
+    .status { padding:10px 12px; border-radius:7px; background:#f4f8fb; border:1px solid var(--line); color:#405364; white-space:pre-wrap; }
+    .metrics { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-top:14px; }
+    .metric { border-left:5px solid var(--green); background:#fff; border:1px solid var(--line); border-left-width:5px; border-radius:8px; padding:12px; }
+    .metric span { display:block; color:var(--muted); font-size:11px; font-weight:800; text-transform:uppercase; }
+    .metric strong { display:block; margin-top:5px; color:var(--dark); font-size:26px; }
+    .hint { font-size:12px; color:var(--muted); }
+    @media (max-width:700px) { .metrics { grid-template-columns:1fr; } main { padding:14px; } button { width:100%; } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Atualizar Base de Anomalias</h1>
+    <p>Importe a planilha da Equatorial e publique a atualização para todos que acessam o link do painel.</p>
+  </header>
+  <main>
+    <section class="panel">
+      <h2>1. Selecionar planilha</h2>
+      <p>A planilha original pode ter várias abas e colunas extras. Esta rotina usa a aba <strong>Geral anomalias</strong> e lê somente as colunas necessárias.</p>
+      <label for="excelFile">Planilha Excel</label>
+      <input id="excelFile" type="file" accept=".xlsx,.xls">
+      <div id="previewMetrics" class="metrics" hidden>
+        <div class="metric"><span>Registros</span><strong id="mTotal">0</strong></div>
+        <div class="metric"><span>Executadas</span><strong id="mExec">0</strong></div>
+        <div class="metric"><span>Pendentes</span><strong id="mPend">0</strong></div>
+        <div class="metric"><span>Projetos</span><strong id="mProj">0</strong></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>2. Publicar para todos</h2>
+      <p>Use um token GitHub com permissão de escrita no repositório <strong>dashboard-programacao-ipora</strong>. O token é usado somente nesta publicação e não é salvo no painel.</p>
+      <label for="githubToken">Token GitHub</label>
+      <input id="githubToken" type="password" placeholder="ghp_...">
+      <div class="row">
+        <button id="publishButton" class="green" disabled>Publicar atualização</button>
+        <a href="index.html" target="_blank" rel="noopener"><button type="button">Abrir painel</button></a>
+      </div>
+      <p class="hint">Depois de publicar, pode levar alguns segundos para o GitHub Pages atualizar. Quem já estiver com o painel aberto deve atualizar a página.</p>
+    </section>
+
+    <section class="panel">
+      <h2>Status</h2>
+      <div id="statusBox" class="status">Aguardando planilha.</div>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="admin.js"></script>
+</body>
+</html>
